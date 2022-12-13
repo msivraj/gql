@@ -53,18 +53,25 @@ class HttpLink extends Link {
 
   http.Client? _httpClient;
 
+  /// An optional function that allows access to http request before it is executed.
+  final void Function(http.BaseRequest request)? getHttpRequest;
+
+  /// An optional function that returns the http response for inspection.
+  final void Function(http.BaseResponse response)? getHttpResponse;
+
   /// Construct the Link
   ///
   /// You can pass a [httpClient] to extend to customize the network request.
-  HttpLink(
-    String uri, {
-    this.defaultHeaders = const {},
-    this.useGETForQueries = false,
-    http.Client? httpClient,
-    this.serializer = const RequestSerializer(),
-    this.parser = const ResponseParser(),
-    this.httpResponseDecoder = _defaultHttpResponseDecoder,
-  }) : uri = Uri.parse(uri) {
+  HttpLink(String uri,
+      {this.defaultHeaders = const {},
+      this.useGETForQueries = false,
+      http.Client? httpClient,
+      this.serializer = const RequestSerializer(),
+      this.parser = const ResponseParser(),
+      this.httpResponseDecoder = _defaultHttpResponseDecoder,
+      this.getHttpRequest,
+      this.getHttpResponse})
+      : uri = Uri.parse(uri) {
     _httpClient = httpClient ?? http.Client();
   }
 
@@ -74,6 +81,9 @@ class HttpLink extends Link {
     NextLink? forward,
   ]) async* {
     final httpResponse = await _executeRequest(request);
+    if (getHttpResponse != null) {
+      getHttpResponse!(httpResponse);
+    }
 
     final response = await _parseHttpResponse(httpResponse);
 
@@ -127,8 +137,13 @@ class HttpLink extends Link {
 
   Future<http.Response> _executeRequest(Request request) async {
     final httpRequest = _prepareRequest(request);
+    if (getHttpRequest != null) {
+      getHttpRequest!(httpRequest);
+    }
+
     try {
       final response = await _httpClient!.send(httpRequest);
+
       return http.Response.fromStream(response);
     } catch (e, stackTrace) {
       throw ServerException(

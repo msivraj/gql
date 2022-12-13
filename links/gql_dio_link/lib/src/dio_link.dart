@@ -46,14 +46,20 @@ class DioLink extends Link {
   /// Wether to use a GET request for queries.
   final bool useGETForQueries;
 
-  DioLink(
-    this.endpoint, {
-    required this.client,
-    this.defaultHeaders = const {},
-    this.serializer = const RequestSerializer(),
-    this.parser = const ResponseParser(),
-    this.useGETForQueries = false,
-  });
+  /// An optional function that allows access to http request before it is executed.
+  final void Function(dynamic request)? getHttpRequest;
+
+  /// An optional function that returns the http response for inspection.
+  final void Function(dio.Response response)? getHttpResponse;
+
+  DioLink(this.endpoint,
+      {required this.client,
+      this.defaultHeaders = const {},
+      this.serializer = const RequestSerializer(),
+      this.parser = const ResponseParser(),
+      this.useGETForQueries = false,
+      this.getHttpRequest,
+      this.getHttpResponse});
 
   @override
   Stream<Response> request(Request request, [forward]) async* {
@@ -163,6 +169,9 @@ class DioLink extends Link {
   }) async {
     try {
       final dynamic body = _prepareRequestBody(request);
+      if (getHttpRequest != null) {
+        getHttpRequest!(body);
+      }
       dio.Response<dynamic> res;
 
       final useGet =
@@ -190,6 +199,11 @@ class DioLink extends Link {
           ),
         );
       }
+
+      if (getHttpResponse != null) {
+        getHttpResponse!(res);
+      }
+
       if (res.data is Map<String, dynamic> == false) {
         throw DioLinkParserException(
           // ignore: prefer_adjacent_string_concatenation
